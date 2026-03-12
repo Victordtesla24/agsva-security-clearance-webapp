@@ -1,0 +1,17 @@
+{
+  "name": "agsva-security-clearance-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-first AGSVA security clearance readiness platform and validation server.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check:repo": "bash scripts/check-repo-hygiene.sh",
+    "check:server": "node --check server/local-app.mjs",
+    "check:shell": "bash -n scripts/check-repo-hygiene.sh && bash -n scripts/serve-draft.sh && bash -n scripts/serve-index.sh && bash -n scripts/test-local-app.sh",
+    "test:smoke": "bash scripts/test-local-app.sh",
+    "ci": "npm run check:repo && npm run check:server && npm run check:shell && npm run test:smoke"
+  }
+}
