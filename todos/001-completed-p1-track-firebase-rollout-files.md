@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 priority: p1
 issue_id: "001"
 tags: [firebase, deployment, git, operations]
@@ -40,11 +40,23 @@ Review the untracked Firebase/static-hosting files, add the required source file
 
 ## Acceptance Criteria
 
-- [ ] All files required for the verified Firebase/static workflow are tracked in git.
-- [ ] `git status --short` no longer shows critical rollout scripts or hosting files as untracked.
-- [ ] Remote CI/Pages can reproduce the same workflow without depending on local-only files.
+- [x] All files required for the verified Firebase/static workflow are tracked in git.
+- [x] `git status --short` no longer shows critical rollout scripts or hosting files as untracked.
+- [x] Remote CI/Pages can reproduce the same workflow without depending on local-only files.
 
 ## Work Log
+
+### 2026-03-13 - Resolution
+
+**By:** Codex
+
+**Actions:**
+- Re-checked the repository state after the final production hardening pass.
+- Confirmed `git status --short` is clean and the required Firebase/static rollout files are already tracked in git.
+- Confirmed both `npm run ci` and `node scripts/manual-static-firebase-smoke.mjs` pass against the tracked workflow.
+
+**Outcome:**
+- This todo is resolved. The rollout-file risk described in the original finding is no longer present in the current repository state.
 
 ### 2026-03-13 - Review synthesis
 
