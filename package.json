@@ -8,10 +8,15 @@
     "node": ">=22"
   },
   "scripts": {
+    "build:firebase-config": "node scripts/sync-firebase-config.mjs --allow-empty-output",
+    "build:firebase-dist": "bash scripts/build-firebase-dist.sh",
     "check:repo": "bash scripts/check-repo-hygiene.sh",
-    "check:server": "node --experimental-sqlite --check server/local-app.mjs && node --check app-runtime.js && node --check server/persistence.mjs",
+    "check:server": "npm run build:firebase-config && node --experimental-sqlite --check server/local-app.mjs && node --check app-runtime.js && node --check firebase-config.js && node --check server/persistence.mjs && node --check scripts/sync-firebase-config.mjs",
     "check:shell": "bash -n scripts/check-repo-hygiene.sh && bash -n scripts/serve-draft.sh && bash -n scripts/serve-index.sh && bash -n scripts/test-local-app.sh",
     "test:smoke": "bash scripts/test-local-app.sh",
     "ci": "npm run check:repo && npm run check:server && npm run check:shell && npm run test:smoke"
+  },
+  "devDependencies": {
+    "playwright": "^1.58.2"
   }
 }

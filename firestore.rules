@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function validVaultId(value) {
+      return value.matches('^[a-f0-9]{36}$');
+    }
+
+    function validArtifactId(value) {
+      return value.matches('^[a-f0-9]{32}$');
+    }
+
+    function validChunkId(value) {
+      return value.matches('^[0-9]{5}$');
+    }
+
+    match /vaults/{vaultId} {
+      allow get, create, update, delete: if validVaultId(vaultId);
+      allow list: if false;
+
+      match /artifacts/{artifactId} {
+        allow get, create, update, delete: if false;
+        allow list: if false;
+
+        match /chunks/{chunkId} {
+          allow get, create, update, delete: if validVaultId(vaultId) && validArtifactId(artifactId) && validChunkId(chunkId);
+          allow list: if false;
+        }
+      }
+    }
+  }
+}

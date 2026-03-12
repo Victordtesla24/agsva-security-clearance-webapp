@@ -4,7 +4,7 @@
 [![Repository Hygiene](https://github.com/Victordtesla24/agsva-security-clearance-webapp/actions/workflows/repo-hygiene.yml/badge.svg?branch=main)](https://github.com/Victordtesla24/agsva-security-clearance-webapp/actions/workflows/repo-hygiene.yml)
 [![CodeQL](https://github.com/Victordtesla24/agsva-security-clearance-webapp/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Victordtesla24/agsva-security-clearance-webapp/actions/workflows/codeql.yml)
 
-AGSVA Clearance Platform is a local-first executive web application for preparing, validating, and presenting a Baseline security clearance submission package with a controlled operating model. The repository combines a polished browser experience in `index.html`, an override runtime layer in `app-runtime.js`, a lightweight Node.js review server, SQLite-backed local persistence, guarded local validation endpoints, and publication-ready engineering controls for GitHub delivery.
+AGSVA Clearance Platform is a local-first executive web application for preparing, validating, and presenting a Baseline security clearance submission package with a controlled operating model. The repository combines a polished browser experience in `index.html`, an override runtime layer in `app-runtime.js`, a lightweight Node.js review server, SQLite-backed local persistence, encrypted Firebase-backed static persistence, guarded local validation endpoints, and publication-ready engineering controls for GitHub delivery.
 
 ## Executive Summary
 
@@ -19,7 +19,7 @@ Primary outcomes:
 ## Platform Capabilities
 
 - Executive-grade single-page interface for AGSVA preparation and progress tracking.
-- Durable application-state persistence through SQLite when running the local server, with browser fallback on static hosting.
+- Durable application-state persistence through SQLite when running the local server, with encrypted Firebase persistence on static hosting and browser fallback only as a last resort.
 - Server-backed document storage and metadata persistence during local/runtime operation.
 - Local Node.js server for serving the application and exposing review-focused endpoints:
   - `GET /api/health`
@@ -39,10 +39,13 @@ Primary outcomes:
 
 - [`index.html`](./index.html): primary application experience and client-side workflow logic.
 - [`app-runtime.js`](./app-runtime.js): runtime overrides for durable persistence, validation, and PDF overflow control.
+- `firebase-config.js`: generated Firebase client configuration used by static production deployments.
 - [`server/local-app.mjs`](./server/local-app.mjs): local delivery and validation server.
 - [`server/persistence.mjs`](./server/persistence.mjs): SQLite and document-storage layer.
+- [`firestore.rules`](./firestore.rules): Firestore rules for encrypted static-hosting persistence.
 - [`scripts/serve-draft.sh`](./scripts/serve-draft.sh): managed localhost operator console.
 - [`scripts/serve-index.sh`](./scripts/serve-index.sh): convenience entrypoint for the published application file.
+- [`scripts/build-firebase-dist.sh`](./scripts/build-firebase-dist.sh): staging script for Firebase Hosting builds.
 
 ### Security and Data Handling
 
@@ -80,6 +83,8 @@ Create a local `.env` from the example file and provide a real OpenAI API key on
 ```bash
 cp .env.example .env
 ```
+
+Static Firebase persistence can also be sourced from `.env`. Use the normalized `FIREBASE_*` keys shown in `.env.example`; legacy pasted `const firebaseConfig = { ... }` blocks are intentionally ignored until those values are promoted into real env keys. `npm run build:firebase-config` preserves an existing generated `firebase-config.js` when no normalized config is present, and writes an empty safe stub on clean builds so static hosting remains reproducible.
 
 ### Start the Platform
 
@@ -134,7 +139,8 @@ The GitHub repository includes these automation gates:
 ## Storage Modes
 
 - Local/server runtime: `index.html` calls the same-origin API exposed by `server/local-app.mjs`, which persists application state in SQLite under `data/` and stores document binaries on disk.
-- Static hosting: the GitHub Pages deployment serves `index.html` plus `app-runtime.js` only. In that environment the app falls back to browser-managed persistence because there is no server runtime.
+- Static hosting: GitHub Pages and Firebase Hosting serve `index.html`, `app-runtime.js`, and generated `firebase-config.js`. When `FIREBASE_*` values are available at build time, the app uses an encrypted Firebase vault backed by Firestore so refreshes do not clear state or uploaded document content. When they are absent, the generated config is empty and the app falls back to browser-managed storage.
+- Emergency fallback: if neither server nor Firebase persistence is available, the app falls back to browser-managed storage and surfaces an operator-visible warning.
 
 ## Operational Guidance
 

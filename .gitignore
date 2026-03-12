@@ -2,7 +2,10 @@
 .env
 .env.*
 !.env.example
+*-firebase-adminsdk-*.json
 artifacts/
 data/
+.firebase-dist/
+firebase-debug.log
 node_modules/
 tmp/

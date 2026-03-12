@@ -156,6 +156,7 @@ function resolveDefaultFile(rawValue) {
 function loadEnvFile(filePath) {
     if (!fs.existsSync(filePath)) return;
     const contents = fs.readFileSync(filePath, "utf8");
+    const envKeyPattern = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 
     for (const line of contents.split(/\r?\n/u)) {
         const trimmed = line.trim();
@@ -164,6 +165,7 @@ function loadEnvFile(filePath) {
         if (separator <= 0) continue;
 
         const key = trimmed.slice(0, separator).trim();
+        if (!envKeyPattern.test(key)) continue;
         let value = trimmed.slice(separator + 1).trim();
 
         if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {

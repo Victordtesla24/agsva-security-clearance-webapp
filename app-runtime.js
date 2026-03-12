@@ -1,9 +1,11 @@
 const FALLBACK_STATE_KEY = 'agsva-app-state-v3';
   const LEGACY_STATE_KEY = 'agsva-app-state-v2';
+  const FIREBASE_VAULT_KEY = 'agsva-firebase-vault-v1';
   const SERVER_STATE_ENDPOINT = '/api/app-state';
   const SERVER_DOCUMENT_ENDPOINT = '/api/documents';
   const VALID_DOCUMENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']);
   const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024;
+  const FIREBASE_CHUNK_SIZE = 240000;
   const REQUIRED_PERSONAL_FIELDS = ['full-name', 'dob', 'citizenship', 'passport-no', 'current-addr', 'phone', 'email'];
   const legacyProcessFiles = typeof processFiles === 'function' ? processFiles : null;
   const legacyPreviewDoc = typeof previewDoc === 'function' ? previewDoc : null;
@@ -15,6 +17,15 @@ let persistenceBackend = 'server';
   let autosaveTimer = 0;
   let lastPersistedFingerprint = '';
   let saveQueue = Promise.resolve();
+  let firebaseVault = null;
+  const firebaseArtifactUrlCache = new Map();
+  const persistenceDiagnostics = {
+    attempts: 0,
+    successes: 0,
+    lastError: '',
+    lastSavedAt: '',
+    lastBackend: 'server'
+  };
 
 APP_STATE.meta = APP_STATE.meta || {};
   APP_STATE.formData = APP_STATE.formData || {};
@@ -54,7 +65,11 @@ APP_STATE.meta = APP_STATE.meta || {};
     const hasError = Boolean(message);
     element.classList.toggle('error', hasError);
     element.classList.toggle('valid', !hasError && hasMeaningfulValue(element));
-    element.toggleAttribute('aria-invalid', hasError);
+    if (hasError) {
+      element.setAttribute('aria-invalid', 'true');
+    } else {
+      element.removeAttribute('aria-invalid');
+    }
     if (hasError) {
       element.dataset.validationMessage = message;
       element.title = message;
@@ -113,6 +128,300 @@ APP_STATE.meta = APP_STATE.meta || {};
 
   function fingerprint(value) {
     return JSON.stringify(value);
+  }
+
+  function randomHex(bytes = 16) {
+    const buffer = new Uint8Array(bytes);
+    crypto.getRandomValues(buffer);
+    return Array.from(buffer, (value) => value.toString(16).padStart(2, '0')).join('');
+  }
+
+  function base64FromBytes(bytes) {
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+    }
+    return btoa(binary);
+  }
+
+  function bytesFromBase64(value) {
+    const binary = atob(String(value || ''));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  }
+
+  async function importAesKey(keyBase64) {
+    return crypto.subtle.importKey(
+      'raw',
+      bytesFromBase64(keyBase64),
+      'AES-GCM',
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  async function getOrCreateFirebaseVault() {
+    if (firebaseVault) return firebaseVault;
+
+    let parsed = null;
+    try {
+      parsed = JSON.parse(localStorage.getItem(FIREBASE_VAULT_KEY) || 'null');
+    } catch (error) {
+      console.warn('Ignoring invalid Firebase vault metadata', error);
+    }
+
+    if (!parsed?.vaultId || !parsed?.keyBase64) {
+      parsed = {
+        version: 1,
+        vaultId: randomHex(18),
+        keyBase64: base64FromBytes(crypto.getRandomValues(new Uint8Array(32))),
+        createdAt: new Date().toISOString()
+      };
+      localStorage.setItem(FIREBASE_VAULT_KEY, JSON.stringify(parsed));
+    }
+
+    firebaseVault = {
+      ...parsed,
+      key: await importAesKey(parsed.keyBase64)
+    };
+    return firebaseVault;
+  }
+
+  async function encryptText(text) {
+    const vault = await getOrCreateFirebaseVault();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encoded = new TextEncoder().encode(String(text ?? ''));
+    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, vault.key, encoded);
+    return {
+      iv: base64FromBytes(iv),
+      ciphertext: base64FromBytes(new Uint8Array(encrypted))
+    };
+  }
+
+  async function decryptText(ciphertext, iv) {
+    const vault = await getOrCreateFirebaseVault();
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: bytesFromBase64(iv) },
+      vault.key,
+      bytesFromBase64(ciphertext)
+    );
+    return new TextDecoder().decode(decrypted);
+  }
+
+  function chunkString(value, chunkSize = FIREBASE_CHUNK_SIZE) {
+    const chunks = [];
+    for (let index = 0; index < value.length; index += chunkSize) {
+      chunks.push(value.slice(index, index + chunkSize));
+    }
+    return chunks.length ? chunks : [''];
+  }
+
+  function firebaseConfig() {
+    return window.__AGSVA_FIREBASE_CONFIG__ && typeof window.__AGSVA_FIREBASE_CONFIG__ === 'object'
+      ? window.__AGSVA_FIREBASE_CONFIG__
+      : null;
+  }
+
+  function firebaseProjectId() {
+    return firebaseConfig()?.projectId || '';
+  }
+
+  function firebaseApiKey() {
+    return firebaseConfig()?.apiKey || '';
+  }
+
+  function firebaseDocumentUrl(...segments) {
+    const encodedSegments = segments.map((segment) => encodeURIComponent(segment)).join('/');
+    return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(firebaseProjectId())}/databases/(default)/documents/${encodedSegments}?key=${encodeURIComponent(firebaseApiKey())}`;
+  }
+
+  function firestoreStringField(value) {
+    return { stringValue: String(value ?? '') };
+  }
+
+  function firestoreIntegerField(value) {
+    return { integerValue: String(Math.trunc(Number(value) || 0)) };
+  }
+
+  function decodeFirestoreField(field) {
+    if (!field || typeof field !== 'object') return null;
+    if ('stringValue' in field) return field.stringValue;
+    if ('integerValue' in field) return Number.parseInt(field.integerValue, 10);
+    return null;
+  }
+
+  async function firestoreRequest(url, options = {}) {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+
+    if (response.status === 404) return null;
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = payload?.error?.message || `Firestore request failed with status ${response.status}`;
+      throw new Error(message);
+    }
+    return payload;
+  }
+
+  function preferredPersistenceMode() {
+    const override = new URLSearchParams(window.location.search).get('storage');
+    if (override === 'browser' || override === 'server' || override === 'firebase') return override;
+
+    if (firebaseConfig() && !/^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/u.test(window.location.hostname)) {
+      return 'firebase';
+    }
+
+    return 'server';
+  }
+
+  async function initializeFirebasePersistence() {
+    const config = firebaseConfig();
+    if (!config?.projectId || !config?.apiKey) {
+      throw new Error('Firebase configuration is incomplete.');
+    }
+    return getOrCreateFirebaseVault();
+  }
+
+  function createBlobUrlFromBase64(base64, mimeType) {
+    const blob = new Blob([bytesFromBase64(base64)], { type: mimeType || 'application/octet-stream' });
+    return URL.createObjectURL(blob);
+  }
+
+  async function loadFirebaseSnapshot() {
+    await initializeFirebasePersistence();
+    const payload = await firestoreRequest(firebaseDocumentUrl('vaults', firebaseVault.vaultId), { method: 'GET' });
+    if (!payload?.fields) return null;
+
+    const ciphertext = decodeFirestoreField(payload.fields.ciphertext);
+    const iv = decodeFirestoreField(payload.fields.iv);
+    if (!ciphertext || !iv) return null;
+
+    const decrypted = await decryptText(ciphertext, iv);
+    return JSON.parse(decrypted);
+  }
+
+  async function hydrateFromFirebase() {
+    persistenceBackend = 'firebase';
+    const state = await loadFirebaseSnapshot();
+    persistenceHydrating = true;
+    try {
+      applyLoadedState(state || {}, []);
+      persistenceReady = true;
+    } finally {
+      persistenceHydrating = false;
+    }
+  }
+
+  async function persistFirebaseSnapshot(snapshot) {
+    await initializeFirebasePersistence();
+    const encrypted = await encryptText(JSON.stringify(snapshot));
+    await firestoreRequest(firebaseDocumentUrl('vaults', firebaseVault.vaultId), {
+      method: 'PATCH',
+      body: JSON.stringify({
+        fields: {
+          ciphertext: firestoreStringField(encrypted.ciphertext),
+          iv: firestoreStringField(encrypted.iv),
+          schemaVersion: firestoreIntegerField(1),
+          updatedAt: firestoreIntegerField(Date.now())
+        }
+      })
+    });
+  }
+
+  async function storeFirebaseDocument(file, category, validationState, contentBase64) {
+    await initializeFirebasePersistence();
+
+    const encrypted = await encryptText(contentBase64);
+    const chunks = chunkString(encrypted.ciphertext);
+    const documentId = randomHex(16);
+    await Promise.all(chunks.map((chunk, index) => {
+      return firestoreRequest(
+        firebaseDocumentUrl('vaults', firebaseVault.vaultId, 'artifacts', documentId, 'chunks', String(index).padStart(5, '0')),
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            fields: {
+              value: firestoreStringField(chunk)
+            }
+          })
+        }
+      );
+    }));
+    return {
+      id: documentId,
+      category,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      validationState,
+      storage: {
+        provider: 'firebase-firestore',
+        chunkCount: chunks.length,
+        iv: encrypted.iv
+      }
+    };
+  }
+
+  async function loadFirebaseDocumentBase64(documentRecord) {
+    await initializeFirebasePersistence();
+
+    const storage = documentRecord?.storage || {};
+    const chunkCount = Number(storage.chunkCount || 0);
+    if (!documentRecord?.id || !storage.iv || chunkCount <= 0) {
+      throw new Error('Document metadata is incomplete.');
+    }
+
+    const chunks = await Promise.all(Array.from({ length: chunkCount }, (_, index) => {
+      return firestoreRequest(
+        firebaseDocumentUrl('vaults', firebaseVault.vaultId, 'artifacts', documentRecord.id, 'chunks', String(index).padStart(5, '0')),
+        { method: 'GET' }
+      );
+    }));
+    const ciphertext = chunks.map((snapshot) => decodeFirestoreField(snapshot?.fields?.value) || '').join('');
+    return decryptText(ciphertext, storage.iv);
+  }
+
+  async function openFirebaseDocument(documentRecord) {
+    const cachedUrl = firebaseArtifactUrlCache.get(documentRecord.id);
+    if (cachedUrl) {
+      window.open(cachedUrl, '_blank', 'noopener');
+      return;
+    }
+
+    const contentBase64 = await loadFirebaseDocumentBase64(documentRecord);
+    const blobUrl = createBlobUrlFromBase64(contentBase64, documentRecord.type);
+    firebaseArtifactUrlCache.set(documentRecord.id, blobUrl);
+    window.open(blobUrl, '_blank', 'noopener');
+  }
+
+  async function deleteFirebaseDocument(documentRecord) {
+    await initializeFirebasePersistence();
+
+    const storage = documentRecord?.storage || {};
+    const chunkCount = Number(storage.chunkCount || 0);
+    if (!documentRecord?.id || chunkCount <= 0) return;
+
+    await Promise.all(Array.from({ length: chunkCount }, (_, index) => {
+      return firestoreRequest(
+        firebaseDocumentUrl('vaults', firebaseVault.vaultId, 'artifacts', documentRecord.id, 'chunks', String(index).padStart(5, '0')),
+        { method: 'DELETE' }
+      );
+    }));
+
+    const cachedUrl = firebaseArtifactUrlCache.get(documentRecord.id);
+    if (cachedUrl) {
+      URL.revokeObjectURL(cachedUrl);
+      firebaseArtifactUrlCache.delete(documentRecord.id);
+    }
   }
 
   function extractIndices(selector, pattern) {
@@ -660,6 +969,7 @@ APP_STATE.meta = APP_STATE.meta || {};
       personal: cloneJson(APP_STATE.personal),
       employment: cloneJson(APP_STATE.employment),
       addresses: cloneJson(APP_STATE.addresses),
+      documents: cloneJson(APP_STATE.documents),
       referees: cloneJson(APP_STATE.referees),
       legalMatters: cloneJson(APP_STATE.legalMatters),
       exculpatoryEvidence: cloneJson(APP_STATE.exculpatoryEvidence),
@@ -761,30 +1071,47 @@ APP_STATE.meta = APP_STATE.meta || {};
   }
 
   async function persistSnapshot(snapshot) {
+    const lastSavedAt = new Date().toISOString();
+    snapshot.meta = { ...(snapshot.meta || {}), lastSavedAt };
     const snapshotFingerprint = fingerprint(snapshot);
     if (snapshotFingerprint === lastPersistedFingerprint) return;
+
+    persistenceDiagnostics.attempts += 1;
+    persistenceDiagnostics.lastBackend = persistenceBackend;
+    persistenceDiagnostics.lastError = '';
 
     if (persistenceBackend === 'server') {
       await apiJson(SERVER_STATE_ENDPOINT, {
         method: 'PUT',
         body: JSON.stringify({ state: snapshot })
       });
+    } else if (persistenceBackend === 'firebase') {
+      await persistFirebaseSnapshot(snapshot);
     } else {
       localStorage.setItem(FALLBACK_STATE_KEY, JSON.stringify(snapshot));
     }
 
-    APP_STATE.meta.lastSavedAt = new Date().toISOString();
+    APP_STATE.meta.lastSavedAt = lastSavedAt;
+    persistenceDiagnostics.successes += 1;
+    persistenceDiagnostics.lastSavedAt = lastSavedAt;
     lastPersistedFingerprint = snapshotFingerprint;
   }
 
   function queuePersist(immediate = false) {
-    if (!persistenceReady || persistenceHydrating) return;
+    if (persistenceHydrating || (immediate && !persistenceReady)) {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = window.setTimeout(() => queuePersist(immediate), 250);
+      return;
+    }
+
+    if (!persistenceReady) return;
 
     const snapshot = buildPersistableState();
     const executeSave = () => {
       saveQueue = saveQueue
         .then(() => persistSnapshot(snapshot))
         .catch((error) => {
+          persistenceDiagnostics.lastError = error?.message || String(error);
           console.error('Failed to persist application state', error);
           showToast('⚠️ Unable to save changes right now. Please retry in a moment.', 'info');
         });
@@ -821,6 +1148,15 @@ APP_STATE.meta = APP_STATE.meta || {};
       } catch (error) {
         console.warn('Failed to refresh persistence health', error);
       }
+    }
+
+    if (persistenceBackend === 'firebase') {
+      const documentsCount = APP_STATE.documents.length;
+      const documentBytes = APP_STATE.documents.reduce((total, document) => total + (Number(document.size) || 0), 0);
+      const percent = Math.min(100, percentage(documentsCount, REQUIRED_DOCS.length));
+      bar.style.width = `${percent}%`;
+      text.textContent = `Firebase encrypted vault active · ${documentsCount} document${documentsCount === 1 ? '' : 's'} · ${formatBytes(documentBytes)}`;
+      return;
     }
 
     if (navigator.storage?.estimate) {
@@ -1135,29 +1471,40 @@ APP_STATE.meta = APP_STATE.meta || {};
 
       const category = manualCategory || inferCategory(file.name);
       const existing = APP_STATE.documents.filter((document) => document.category === category);
-      for (const document of existing) {
-        await fetch(`${SERVER_DOCUMENT_ENDPOINT}/${encodeURIComponent(document.id)}`, { method: 'DELETE' }).catch(() => {});
-      }
-      APP_STATE.documents = APP_STATE.documents.filter((document) => document.category !== category);
-
       const contentBase64 = await fileToBase64(file);
-      const payload = await apiJson(SERVER_DOCUMENT_ENDPOINT, {
-        method: 'POST',
-        body: JSON.stringify({
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          category,
-          validationState: validateDocumentFile(file, category),
-          contentBase64
-        })
-      });
+      const validationState = validateDocumentFile(file, category);
+      let storedDocument = null;
 
-      APP_STATE.documents.unshift(payload.document);
+      if (persistenceBackend === 'firebase') {
+        storedDocument = await storeFirebaseDocument(file, category, validationState, contentBase64);
+        for (const document of existing) {
+          await deleteFirebaseDocument(document);
+        }
+      } else {
+        for (const document of existing) {
+          await fetch(`${SERVER_DOCUMENT_ENDPOINT}/${encodeURIComponent(document.id)}`, { method: 'DELETE' }).catch(() => {});
+        }
+        const payload = await apiJson(SERVER_DOCUMENT_ENDPOINT, {
+          method: 'POST',
+          body: JSON.stringify({
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            category,
+            validationState,
+            contentBase64
+          })
+        });
+        storedDocument = payload.document;
+      }
+
+      APP_STATE.documents = APP_STATE.documents.filter((document) => document.category !== category);
+      APP_STATE.documents.unshift(storedDocument);
       renderUploadedDocs();
       renderDocChecklist();
       updateDocumentProgress();
       queuePersist(true);
+      updateStorageMeter();
       showToast(`✅ ${file.name} stored (${getCategoryLabel(category)})`, 'success');
     }
 
@@ -1169,6 +1516,11 @@ APP_STATE.meta = APP_STATE.meta || {};
       if (legacyPreviewDoc) return legacyPreviewDoc(id);
       return;
     }
+    if (persistenceBackend === 'firebase') {
+      const documentRecord = APP_STATE.documents.find((document) => document.id === id);
+      if (!documentRecord) return;
+      return openFirebaseDocument(documentRecord);
+    }
     window.open(`${SERVER_DOCUMENT_ENDPOINT}/${encodeURIComponent(id)}/content`, '_blank', 'noopener');
   }
 
@@ -1178,7 +1530,12 @@ APP_STATE.meta = APP_STATE.meta || {};
       return;
     }
 
-    await fetch(`${SERVER_DOCUMENT_ENDPOINT}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (persistenceBackend === 'firebase') {
+      const documentRecord = APP_STATE.documents.find((document) => document.id === id);
+      if (documentRecord) await deleteFirebaseDocument(documentRecord);
+    } else {
+      await fetch(`${SERVER_DOCUMENT_ENDPOINT}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    }
     APP_STATE.documents = APP_STATE.documents.filter((document) => document.id !== id);
     renderUploadedDocs();
     renderDocChecklist();
@@ -1593,6 +1950,26 @@ APP_STATE.meta = APP_STATE.meta || {};
   }
 
   function initDB() {
+    const mode = preferredPersistenceMode();
+
+    if (mode === 'browser') {
+      persistenceBackend = 'browser';
+      restoreState();
+      showToast('ℹ️ Browser-only storage is active.', 'info');
+      return;
+    }
+
+    if (mode === 'firebase') {
+      persistenceBackend = 'firebase';
+      hydrateFromFirebase().catch((error) => {
+        console.error('Falling back to browser storage after Firebase failure', error);
+        persistenceBackend = 'browser';
+        restoreState();
+        showToast('⚠️ Cloud persistence unavailable. Browser fallback storage is active.', 'info');
+      });
+      return;
+    }
+
     hydrateFromServer().catch((error) => {
       console.info('Falling back to browser storage', error);
       persistenceBackend = 'browser';
@@ -1655,3 +2032,13 @@ APP_STATE.meta = APP_STATE.meta || {};
   window.exportApplicationPDF = exportApplicationPDF;
   window.initDB = initDB;
   window.updateSubmissionChecklist = updateSubmissionChecklist;
+  window.__agsvaPersistenceState = function persistenceState() {
+    return {
+      backend: persistenceBackend,
+      ready: persistenceReady,
+      hydrating: persistenceHydrating
+    };
+  };
+  window.__agsvaPersistenceDiagnostics = function persistenceStateDiagnostics() {
+    return { ...persistenceDiagnostics };
+  };

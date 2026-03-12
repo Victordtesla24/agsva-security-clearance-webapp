@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://www.gstatic.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://firestore.googleapis.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; connect-src 'none';">
   <title>AGSVA Clearance Platform | Vikram Deshpande</title>
   <meta name="description" content="Enterprise-grade AGSVA Baseline Security Clearance application platform for Vikram Deshpande — ATO">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2351,7 +2351,7 @@
     <section id="documents" class="section" aria-labelledby="docs-title">
       <div class="label-tag">Document Management</div>
       <h2 class="section-title" id="docs-title">Identity & Supporting Documents</h2>
-      <p class="section-subtitle">Upload all required identity and supporting documents. Files are stored durably through the local review server when available, with browser fallback during static preview.</p>
+      <p class="section-subtitle">Upload all required identity and supporting documents. Files are stored locally in your browser — no data is transmitted to external servers.</p>
 
       <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
            ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)"
@@ -2417,7 +2417,7 @@
 
       <div class="divider"></div>
       <h3 class="card-title mb-1">Stored Documents (<span id="upload-count">0</span>)</h3>
-      <p class="text-sm text-muted mb-1" style="font-size:0.75rem;">Stored document metadata persists across refresh. Click 👁 to preview. Click ✕ to remove.</p>
+      <p class="text-sm text-muted mb-1" style="font-size:0.75rem;">Files stored in browser IndexedDB (persistent). Click 👁 to preview. Click ✕ to remove.</p>
       <div class="uploaded-docs-grid" id="uploaded-docs" role="list" aria-live="polite" aria-label="Uploaded documents"></div>
     </section>
 
@@ -4913,9 +4913,5 @@ Supporting documentation is available upon request.</textarea>
     }
   });
   </script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-  <script src="./firebase-config.js"></script>
-  <script src="./app-runtime.js"></script>
 </body>
 </html>
