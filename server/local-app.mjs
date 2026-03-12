@@ -7,6 +7,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
+import { createPersistenceLayer } from "./persistence.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +18,7 @@ const requestLogPath = path.join(artifactsDir, "local-app-requests.jsonl");
 const clientLogPath = path.join(artifactsDir, "browser-diagnostics.jsonl");
 const blockedTopLevelEntries = new Set([
     "artifacts",
+    "data",
     "docs",
     "node_modules",
     "scripts",
@@ -31,6 +33,7 @@ const startedAt = new Date().toISOString();
 if (envFilePath) loadEnvFile(envFilePath);
 await fsp.mkdir(artifactsDir, { recursive: true });
 await fsp.mkdir(aiArtifactsDir, { recursive: true });
+const persistence = await createPersistenceLayer(rootDir);
 
 const config = {
     host: getArgValue("--host") || process.env.LOCAL_APP_HOST || "127.0.0.1",
@@ -42,7 +45,7 @@ const config = {
     maxConcurrentRequests: normalizeInteger(process.env.OPENAI_MAX_CONCURRENT_REQUESTS, 1),
     requestTimeoutMs: normalizeInteger(process.env.OPENAI_REQUEST_TIMEOUT_MS, 25000),
     upstreamRetryAttempts: normalizeInteger(process.env.OPENAI_UPSTREAM_RETRY_ATTEMPTS, 2),
-    maxPayloadBytes: normalizeInteger(process.env.LOCAL_APP_MAX_PAYLOAD_BYTES, 64 * 1024),
+    maxPayloadBytes: normalizeInteger(process.env.LOCAL_APP_MAX_PAYLOAD_BYTES, 16 * 1024 * 1024),
     apiKey: process.env.OPENAI_API_KEY || ""
 };
 
@@ -393,6 +396,7 @@ function healthPayload() {
         : 0;
     const requestLogCount = countJsonLines(requestLogPath);
     const clientDiagnosticCount = countJsonLines(clientLogPath);
+    const persistenceHealth = persistence.health();
 
     return {
         ok: true,
@@ -405,6 +409,14 @@ function healthPayload() {
             logs: {
                 requestLogPath,
                 clientLogPath
+            }
+        },
+        persistence: {
+            ...persistenceHealth,
+            endpoints: {
+                state: "/api/app-state",
+                documents: "/api/documents",
+                documentContent: "/api/documents/:id/content"
             }
         },
         ai: {
@@ -588,6 +600,61 @@ function sanitizeClientDiagnostic(body) {
         message,
         detail,
         recordedAt: new Date().toISOString()
+    };
+}
+
+function sanitizeAppStateRequest(body) {
+    const state = body?.state ?? body;
+    if (!state || typeof state !== "object" || Array.isArray(state)) {
+        throw new HttpError(400, "Application state payload must be a JSON object.");
+    }
+
+    return JSON.parse(JSON.stringify(state));
+}
+
+function sanitizeDocumentUpload(body) {
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const type = typeof body?.type === "string" ? body.type.trim() : "";
+    const category = typeof body?.category === "string" && body.category.trim()
+        ? body.category.trim().slice(0, 120)
+        : "other";
+    const status = typeof body?.status === "string" && body.status.trim()
+        ? body.status.trim().slice(0, 40)
+        : "uploaded";
+    const validationState = typeof body?.validationState === "string" && body.validationState.trim()
+        ? body.validationState.trim().slice(0, 40)
+        : "pending";
+    const contentBase64 = typeof body?.contentBase64 === "string" ? body.contentBase64.trim() : "";
+    const size = Number.parseInt(String(body?.size ?? ""), 10);
+
+    if (!name) {
+        throw new HttpError(400, "Document name is required.");
+    }
+
+    if (!type) {
+        throw new HttpError(400, "Document MIME type is required.");
+    }
+
+    if (!Number.isFinite(size) || size < 1 || size > 10 * 1024 * 1024) {
+        throw new HttpError(400, "Document size must be between 1 byte and 10MB.");
+    }
+
+    if (!contentBase64 || !/^[A-Za-z0-9+/=\s]+$/u.test(contentBase64)) {
+        throw new HttpError(400, "Document content must be valid base64 data.");
+    }
+
+    return {
+        id: typeof body?.id === "string" && body.id.trim() ? body.id.trim() : undefined,
+        name: name.slice(0, 255),
+        type: type.slice(0, 120),
+        size,
+        category,
+        status,
+        validationState,
+        uploaded: typeof body?.uploaded === "string" && body.uploaded.trim()
+            ? body.uploaded.trim()
+            : new Date().toISOString(),
+        contentBase64: contentBase64.replace(/\s+/gu, "")
     };
 }
 
@@ -783,6 +850,78 @@ async function handleClientDiagnostic(request, response) {
     });
 }
 
+async function handleGetAppState(response) {
+    const persisted = persistence.getState();
+    json(response, 200, {
+        ok: true,
+        state: persisted.state,
+        updatedAt: persisted.updatedAt,
+        documents: persistence.listDocuments()
+    });
+}
+
+async function handlePutAppState(request, response) {
+    const state = sanitizeAppStateRequest(await readJsonBody(request));
+    const persisted = persistence.saveState(state);
+    json(response, 200, {
+        ok: true,
+        state: persisted.state,
+        updatedAt: persisted.updatedAt,
+        documents: persistence.listDocuments()
+    });
+}
+
+async function handleCreateDocument(request, response) {
+    const document = sanitizeDocumentUpload(await readJsonBody(request));
+    const saved = await persistence.saveDocument(document);
+    json(response, 201, {
+        ok: true,
+        document: saved
+    });
+}
+
+async function handleDeleteDocument(response, documentId) {
+    const removed = await persistence.deleteDocument(documentId);
+    if (!removed) {
+        json(response, 404, {
+            ok: false,
+            error: "Document not found."
+        });
+        return;
+    }
+
+    json(response, 200, {
+        ok: true
+    });
+}
+
+async function handleGetDocumentContent(request, response, documentId) {
+    const record = persistence.getDocumentRecord(documentId);
+    if (!record || !record.storagePath) {
+        text(response, 404, "Not found");
+        return;
+    }
+
+    try {
+        const stat = await fsp.stat(record.storagePath);
+        response.writeHead(200, {
+            "content-type": record.type || "application/octet-stream",
+            "content-length": stat.size,
+            "cache-control": "no-store",
+            "content-disposition": `inline; filename="${sanitizeArtifactToken(record.name)}"`
+        });
+
+        if (request.method === "HEAD") {
+            response.end();
+            return;
+        }
+
+        fs.createReadStream(record.storagePath).pipe(response);
+    } catch {
+        text(response, 404, "Not found");
+    }
+}
+
 const server = http.createServer(async (request, response) => {
     const requestUrl = new URL(request.url || "/", `http://${request.headers.host || `${config.host}:${config.port}`}`);
     const pathname = requestUrl.pathname;
@@ -796,6 +935,33 @@ const server = http.createServer(async (request, response) => {
 
         if (pathname === "/api/logs/client" && request.method === "POST") {
             await handleClientDiagnostic(request, response);
+            return;
+        }
+
+        if (pathname === "/api/app-state" && request.method === "GET") {
+            await handleGetAppState(response);
+            return;
+        }
+
+        if (pathname === "/api/app-state" && request.method === "PUT") {
+            await handlePutAppState(request, response);
+            return;
+        }
+
+        if (pathname === "/api/documents" && request.method === "POST") {
+            await handleCreateDocument(request, response);
+            return;
+        }
+
+        const documentContentMatch = pathname.match(/^\/api\/documents\/([^/]+)\/content$/u);
+        if (documentContentMatch && ["GET", "HEAD"].includes(request.method || "")) {
+            await handleGetDocumentContent(request, response, documentContentMatch[1]);
+            return;
+        }
+
+        const documentDeleteMatch = pathname.match(/^\/api\/documents\/([^/]+)$/u);
+        if (documentDeleteMatch && request.method === "DELETE") {
+            await handleDeleteDocument(response, documentDeleteMatch[1]);
             return;
         }
 

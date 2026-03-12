@@ -3,5 +3,6 @@
 .env.*
 !.env.example
 artifacts/
+data/
 node_modules/
 tmp/

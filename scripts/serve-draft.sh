@@ -711,17 +711,17 @@ start_server() {
 
     url="$(server_url)"
     log_file_path="$(log_file)"
-    command_line="LOCAL_APP_DEFAULT_FILE=${LOCAL_APP_DEFAULT_FILE} node ${SERVER_ENTRYPOINT} --host ${HOST} --port ${PORT}"
+    command_line="LOCAL_APP_DEFAULT_FILE=${LOCAL_APP_DEFAULT_FILE} node --experimental-sqlite ${SERVER_ENTRYPOINT} --host ${HOST} --port ${PORT}"
 
     log_event "INFO" "Starting server with command: ${command_line}"
 
     if command -v setsid >/dev/null 2>&1; then
         setsid env LOCAL_APP_DEFAULT_FILE="${LOCAL_APP_DEFAULT_FILE}" \
-            node "${SERVER_ENTRYPOINT}" --host "${HOST}" --port "${PORT}" \
+            node --experimental-sqlite "${SERVER_ENTRYPOINT}" --host "${HOST}" --port "${PORT}" \
             >> "${log_file_path}" 2>&1 < /dev/null &
     else
         nohup env LOCAL_APP_DEFAULT_FILE="${LOCAL_APP_DEFAULT_FILE}" \
-            node "${SERVER_ENTRYPOINT}" --host "${HOST}" --port "${PORT}" \
+            node --experimental-sqlite "${SERVER_ENTRYPOINT}" --host "${HOST}" --port "${PORT}" \
             >> "${log_file_path}" 2>&1 < /dev/null &
     fi
     pid=$!
