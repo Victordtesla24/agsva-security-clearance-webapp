@@ -7,9 +7,11 @@ const FALLBACK_STATE_KEY = 'agsva-app-state-v3';
   const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024;
   const FIREBASE_CHUNK_SIZE = 240000;
   const REQUIRED_PERSONAL_FIELDS = ['full-name', 'dob', 'citizenship', 'passport-no', 'current-addr', 'phone', 'email'];
+  const ACTIVE_READINESS_PROGRESS_KEYS = ['personal', 'employment', 'address', 'documents', 'referees', 'disclosure'];
   const legacyProcessFiles = typeof processFiles === 'function' ? processFiles : null;
   const legacyPreviewDoc = typeof previewDoc === 'function' ? previewDoc : null;
   const legacyRemoveDoc = typeof removeDoc === 'function' ? removeDoc : null;
+  const legacyGetFileBlob = typeof getFileBlob === 'function' ? getFileBlob : null;
 
 let persistenceBackend = 'server';
   let persistenceReady = false;
@@ -31,6 +33,7 @@ APP_STATE.meta = APP_STATE.meta || {};
   APP_STATE.formData = APP_STATE.formData || {};
   APP_STATE.meta.refereePdfGeneratedAt = APP_STATE.meta.refereePdfGeneratedAt || '';
   APP_STATE.meta.applicationPdfGeneratedAt = APP_STATE.meta.applicationPdfGeneratedAt || '';
+  APP_STATE.meta.documentBundleGeneratedAt = APP_STATE.meta.documentBundleGeneratedAt || '';
   APP_STATE.meta.lastSavedAt = APP_STATE.meta.lastSavedAt || '';
 
   function escapeHtml(value) {
@@ -40,6 +43,26 @@ APP_STATE.meta = APP_STATE.meta || {};
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#39;');
+  }
+
+  function sanitizeArchiveSegment(value, fallback = 'item') {
+    const sanitized = String(value || fallback)
+      .normalize('NFKD')
+      .replace(/[^a-zA-Z0-9._-]+/gu, '-')
+      .replace(/-+/gu, '-')
+      .replace(/^-|-$/gu, '');
+    return sanitized || fallback;
+  }
+
+  function triggerDownload(blob, fileName) {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   }
 
   function getElement(id) {
@@ -854,19 +877,29 @@ APP_STATE.meta = APP_STATE.meta || {};
   function validateDisclosureSection(options = {}) {
     const markFields = Boolean(options.markFields);
     const text = getFieldValue('disclosure-editor').trim();
-    const lowerText = text.toLowerCase();
-    const requiredTerms = ['road safety act', 'vicroads', 'leap', 'no conviction'];
-    APP_STATE.legalMatters.forEach((matter) => {
-      if (matter.offenceDate) {
-        const label = new Date(matter.offenceDate).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' }).toLowerCase();
-        requiredTerms.push(label);
-      }
-    });
-
     const issues = [];
-    if (text.length < 300) issues.push('Disclosure statement is too short to explain the legal matters fully.');
-    requiredTerms.forEach((term) => {
-      if (!lowerText.includes(term)) issues.push(`Disclosure statement is missing required context: ${term}.`);
+    if (text.length < 220) issues.push('Disclosure statement is too short to explain the legal matter factually.');
+
+    const checks = [
+      {
+        valid: /\b(legal|court|matter|proceeding|charge|traffic)\b/iu.test(text),
+        message: 'Disclosure must describe the legal matter or proceedings.'
+      },
+      {
+        valid: /\b(current|pending|contested|contest|chronology|ongoing|intercept|hearing)\b/iu.test(text),
+        message: 'Disclosure must explain the current status or chronology of the matter.'
+      },
+      {
+        valid: /\b(evidence|document|documentation|supporting material|supporting documentation|records?)\b/iu.test(text),
+        message: 'Disclosure must reference supporting evidence or documentation.'
+      },
+      {
+        valid: /\b(disclos|transparen|accura|honest|cooperat)\b/iu.test(text),
+        message: 'Disclosure must state the transparency, accuracy, or cooperation purpose of the statement.'
+      }
+    ];
+    checks.forEach((check) => {
+      if (!check.valid) issues.push(check.message);
     });
 
     if (markFields) setFieldValidationState('disclosure-editor', issues[0] || '');
@@ -912,7 +945,6 @@ APP_STATE.meta = APP_STATE.meta || {};
     }
     if (candidate.email && !isValidEmail(candidate.email)) fieldErrors['ref-email'] = 'Enter a valid referee email address.';
     if (candidate.phone && !isValidPhone(candidate.phone)) fieldErrors['ref-phone'] = 'Enter a valid referee phone number.';
-    if (!candidate.address) fieldErrors['ref-addr'] = 'Enter the referee address.';
     if (candidate.from && candidate.to && new Date(candidate.to) < new Date(candidate.from)) fieldErrors['ref-to'] = 'Referee supervision end date must be after the start date.';
 
     const agsva = validateRefereeAGSVA(candidate);
@@ -1183,16 +1215,12 @@ APP_STATE.meta = APP_STATE.meta || {};
     const personal = validatePersonalSection();
     const employment = validateEmploymentSection();
     const address = validateAddressSection();
-    const family = validateFamilySection();
-    const financial = validateFinancialSection();
     const disclosure = validateDisclosureSection();
 
     const issues = [
       ...personal.issues,
       ...employment.issues,
       ...address.issues,
-      ...family.issues,
-      ...financial.issues,
       ...disclosure.issues
     ];
     const warnings = [...employment.warnings, ...address.warnings];
@@ -1256,15 +1284,10 @@ APP_STATE.meta = APP_STATE.meta || {};
   }
 
   function saveFinancial() {
-    const validation = validateFinancialSection({ markFields: true });
     syncStateFromDom();
-    if (!validation.valid) {
-      showValidationSummary('Financial details require attention', validation.issues);
-      return;
-    }
     queuePersist(true);
     updateAllProgress();
-    showToast('✅ Financial information saved', 'success');
+    showToast('✅ Advisory financial notes saved. This section does not affect Baseline readiness scoring.', 'success');
   }
 
   function validateReferee() {
@@ -1557,8 +1580,7 @@ APP_STATE.meta = APP_STATE.meta || {};
       { label: 'Mandatory identity documents uploaded', done: APP_STATE.progress.documents >= 80 },
       { label: 'At least 1 eligible referee nominated', done: APP_STATE.referees.some((referee) => referee.eligible) },
       { label: 'Referee briefing PDF generated', done: Boolean(APP_STATE.meta.refereePdfGeneratedAt) },
-      { label: 'Legal proceedings disclosure completed', done: validateDisclosureSection().valid },
-      { label: 'Financial information provided', done: validateFinancialSection().valid }
+      { label: 'Legal proceedings disclosure completed', done: validateDisclosureSection().valid }
     ];
 
     const remaining = items.filter((item) => !item.done).length;
@@ -1909,7 +1931,8 @@ APP_STATE.meta = APP_STATE.meta || {};
     drawHeader();
 
     sectionTitle('APPLICATION PROGRESS SUMMARY');
-    Object.entries(APP_STATE.progress).forEach(([key, value]) => {
+    ACTIVE_READINESS_PROGRESS_KEYS.forEach((key) => {
+      const value = APP_STATE.progress[key] || 0;
       ensureSpace(8);
       const label = key.charAt(0).toUpperCase() + key.slice(1);
       pdf.setFontSize(10);
@@ -1947,6 +1970,110 @@ APP_STATE.meta = APP_STATE.meta || {};
     APP_STATE.meta.applicationPdfGeneratedAt = new Date().toISOString();
     queuePersist(true);
     showToast('✅ Application summary PDF downloaded', 'success');
+  }
+
+  async function fetchDocumentBlob(documentRecord) {
+    if (!documentRecord?.id) {
+      throw new Error('Document record is missing an id.');
+    }
+
+    if (persistenceBackend === 'browser') {
+      if (!legacyGetFileBlob) {
+        throw new Error('Browser file storage is unavailable.');
+      }
+      const blob = await legacyGetFileBlob(documentRecord.id);
+      if (!blob) {
+        throw new Error(`Missing browser-stored content for ${documentRecord.name || documentRecord.id}.`);
+      }
+      return blob;
+    }
+
+    if (persistenceBackend === 'firebase') {
+      const contentBase64 = await loadFirebaseDocumentBase64(documentRecord);
+      if (!contentBase64) {
+        throw new Error(`Missing Firebase-stored content for ${documentRecord.name || documentRecord.id}.`);
+      }
+      return new Blob([bytesFromBase64(contentBase64)], { type: documentRecord.type || 'application/octet-stream' });
+    }
+
+    const response = await fetch(`${SERVER_DOCUMENT_ENDPOINT}/${encodeURIComponent(documentRecord.id)}/content`);
+    if (!response.ok) {
+      throw new Error(`Unable to fetch ${documentRecord.name || documentRecord.id} from the server.`);
+    }
+    return response.blob();
+  }
+
+  async function exportDocumentBundle() {
+    if (typeof window.JSZip === 'undefined') {
+      showToast('⚠️ ZIP export library loading — please wait and try again', 'info');
+      return;
+    }
+
+    syncStateFromDom();
+
+    if (!APP_STATE.documents.length) {
+      showToast('ℹ️ Upload at least one document before exporting a bundle.', 'info');
+      return;
+    }
+
+    try {
+      showToast('ℹ️ Building document bundle ZIP...', 'info');
+      const zip = new window.JSZip();
+      const documentsFolder = zip.folder('documents');
+      const exportedAt = new Date().toISOString();
+      const applicantName = APP_STATE.personal?.fullName || 'Applicant';
+
+      for (let index = 0; index < APP_STATE.documents.length; index += 1) {
+        const documentRecord = APP_STATE.documents[index];
+        const blob = await fetchDocumentBlob(documentRecord);
+        const folder = documentsFolder.folder(sanitizeArchiveSegment(getCategoryLabel(documentRecord.category), 'uncategorized'));
+        const fileName = `${String(index + 1).padStart(2, '0')}-${sanitizeArchiveSegment(documentRecord.name, `document-${index + 1}`)}`;
+        folder.file(fileName, blob);
+      }
+
+      zip.file('manifest.json', JSON.stringify({
+        applicant: applicantName,
+        exportedAt,
+        backend: persistenceBackend,
+        activeReadinessProgress: Object.fromEntries(
+          ACTIVE_READINESS_PROGRESS_KEYS.map((key) => [key, APP_STATE.progress[key] || 0])
+        ),
+        documents: APP_STATE.documents.map((documentRecord) => ({
+          id: documentRecord.id,
+          name: documentRecord.name,
+          category: documentRecord.category,
+          type: documentRecord.type,
+          size: documentRecord.size,
+          uploaded: documentRecord.uploaded,
+          status: documentRecord.status,
+          validationState: documentRecord.validationState
+        }))
+      }, null, 2));
+      zip.file('README.txt', [
+        'AGSVA Clearance Platform',
+        `Applicant: ${applicantName}`,
+        `Exported: ${new Date(exportedAt).toLocaleString('en-AU')}`,
+        '',
+        'This bundle contains the uploaded supporting documents organised by category.',
+        'manifest.json records export metadata and active readiness progress at export time.'
+      ].join('\n'));
+
+      const archive = await zip.generateAsync({
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
+      });
+      const timestamp = exportedAt.slice(0, 10).replaceAll('-', '');
+      const fileName = `AGSVA_Document_Bundle_${sanitizeArchiveSegment(applicantName, 'Applicant')}_${timestamp}.zip`;
+      triggerDownload(archive, fileName);
+
+      APP_STATE.meta.documentBundleGeneratedAt = exportedAt;
+      queuePersist(true);
+      showToast('✅ Document bundle ZIP downloaded', 'success');
+    } catch (error) {
+      console.error('Document bundle export failed', error);
+      showToast(`❌ Unable to generate the document bundle ZIP: ${error.message}`, 'error');
+    }
   }
 
   function initDB() {
@@ -2030,6 +2157,7 @@ APP_STATE.meta = APP_STATE.meta || {};
   window.removeDoc = removeDoc;
   window.generateRefereePDF = generateRefereePDF;
   window.exportApplicationPDF = exportApplicationPDF;
+  window.exportDocumentBundle = exportDocumentBundle;
   window.initDB = initDB;
   window.updateSubmissionChecklist = updateSubmissionChecklist;
   window.__agsvaPersistenceState = function persistenceState() {

@@ -78,7 +78,6 @@ async function run() {
     await page.fill('#ref-from', '2025-01');
     await page.fill('#ref-phone', '+61 401 555 111');
     await page.fill('#ref-email', 'alex.referee@example.com');
-    await page.fill('#ref-addr', '200 Queen Street, Melbourne VIC 3000');
     await page.click('button:has-text("Add Referee")');
     await page.waitForSelector('#referee-cards .referee-card');
 
@@ -112,6 +111,16 @@ async function run() {
     await page.click('button[aria-label="Export application summary as PDF"]');
     await page.waitForFunction(
       () => document.body.innerText.includes('Application summary PDF downloaded'),
+      null,
+      { timeout: 20000 }
+    );
+
+    const zipDownloadPromise = page.waitForEvent('download');
+    await page.click('button[aria-label="Export document bundle as ZIP"]');
+    const zipDownload = await zipDownloadPromise;
+    assert.match(zipDownload.suggestedFilename(), /\.zip$/i);
+    await page.waitForFunction(
+      () => document.body.innerText.includes('Document bundle ZIP downloaded'),
       null,
       { timeout: 20000 }
     );
