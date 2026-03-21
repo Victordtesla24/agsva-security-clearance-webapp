@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGSVA Baseline Clearance Application Summary — {{applicantName}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { font-size: 10pt; }
+  body { font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif; color: #374151; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .page { width: 210mm; min-height: 297mm; position: relative; overflow: hidden; }
+  @media print {
+    .page { page-break-after: always; page-break-inside: avoid; }
+    .page:last-child { page-break-after: auto; }
+  }
+
+  /* ── Cover ── */
+  .cover { background: linear-gradient(155deg, #1E3A8A 0%, #1e40af 55%, #1d4ed8 100%); color: #fff; display: flex; flex-direction: column; min-height: 297mm; }
+  .cover-watermark { position: absolute; right: -30px; top: 45%; transform: translateY(-50%) rotate(25deg); font-size: 160px; font-weight: 800; color: rgba(255,255,255,0.04); letter-spacing: -6px; user-select: none; white-space: nowrap; }
+  .cover-header { padding: 18mm 20mm 10mm; border-bottom: 1px solid rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: space-between; }
+  .cover-seal { width: 52px; height: 52px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; flex-shrink: 0; }
+  .cover-agency { font-size: 8.5pt; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.8); margin-left: 14px; flex: 1; }
+  .cover-classification { font-size: 7.5pt; font-weight: 700; letter-spacing: 0.16em; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.4); padding: 3px 10px; border-radius: 3px; }
+  .cover-body { flex: 1; padding: 20mm 20mm 0; display: flex; flex-direction: column; justify-content: center; }
+  .cover-label { font-size: 8pt; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: #93C5FD; margin-bottom: 10px; }
+  .cover-title { font-size: 30pt; font-weight: 800; line-height: 1.1; margin-bottom: 6px; letter-spacing: -0.5px; }
+  .cover-subtitle { font-size: 14pt; font-weight: 300; color: rgba(255,255,255,0.85); margin-bottom: 24px; }
+  .cover-divider { width: 60px; height: 3px; background: #93C5FD; margin-bottom: 24px; border-radius: 2px; }
+  .cover-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; overflow: hidden; margin-bottom: 24px; }
+  .cover-meta-item { padding: 13px 18px; border-right: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .cover-meta-item:nth-child(even) { border-right: none; }
+  .cover-meta-item:nth-last-child(-n+2) { border-bottom: none; }
+  .cover-meta-label { font-size: 7pt; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #93C5FD; margin-bottom: 4px; }
+  .cover-meta-value { font-size: 10pt; font-weight: 600; color: #fff; }
+  .cover-footer { padding: 10mm 20mm 14mm; display: flex; justify-content: space-between; align-items: flex-end; font-size: 7.5pt; color: rgba(255,255,255,0.55); border-top: 1px solid rgba(255,255,255,0.1); }
+
+  /* ── Content Pages ── */
+  .content-page { padding: 0 0 16mm; }
+  .page-header { background: #1E3A8A; color: #fff; padding: 8mm 20mm 6mm; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8mm; }
+  .page-header-title { font-size: 8pt; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.8); }
+  .page-header-num { font-size: 7.5pt; color: rgba(255,255,255,0.55); }
+  .content-body { padding: 0 20mm; }
+  .page-footer { position: absolute; bottom: 8mm; left: 20mm; right: 20mm; display: flex; justify-content: space-between; align-items: center; padding-top: 6px; border-top: 1px solid #E5E7EB; font-size: 7pt; color: #9CA3AF; }
+
+  /* ── Section Headings ── */
+  .section-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; margin-top: 16px; }
+  .section-heading:first-child { margin-top: 0; }
+  .section-bar { width: 4px; height: 22px; background: #1E3A8A; border-radius: 2px; flex-shrink: 0; }
+  .section-title { font-size: 12pt; font-weight: 700; color: #1E3A8A; }
+
+  /* ── Progress Table ── */
+  .progress-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 8.5pt; }
+  .progress-table th { background: #1E3A8A; color: #fff; padding: 8px 12px; text-align: left; font-weight: 600; font-size: 8pt; }
+  .progress-table td { padding: 8px 12px; border-bottom: 1px solid #E5E7EB; vertical-align: middle; }
+  .progress-table tr:nth-child(even) td { background: #F9FAFB; }
+  .progress-bar-track { width: 120px; height: 6px; background: #E5E7EB; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
+  .progress-bar-fill { height: 100%; border-radius: 3px; }
+  .fill-high { background: #10B981; }
+  .fill-mid { background: #F59E0B; }
+  .fill-low { background: #EF4444; }
+  .pct-label { font-weight: 700; font-size: 8pt; vertical-align: middle; }
+
+  /* ── Info Grid ── */
+  .info-grid { display: grid; grid-template-columns: 140px 1fr; gap: 0; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 6px; overflow: hidden; margin-bottom: 12px; }
+  .info-label { padding: 7px 12px; font-size: 8.5pt; font-weight: 600; color: #374151; background: #F3F4F6; border-bottom: 1px solid #E5E7EB; border-right: 1px solid #E5E7EB; }
+  .info-value { padding: 7px 12px; font-size: 8.5pt; color: #111827; border-bottom: 1px solid #E5E7EB; background: #fff; }
+
+  /* ── Standard Table ── */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 8.5pt; }
+  thead th { background: #1E3A8A; color: #fff; padding: 8px 12px; text-align: left; font-weight: 600; font-size: 8pt; letter-spacing: 0.05em; }
+  tbody tr:nth-child(even) td { background: #F9FAFB; }
+  td { padding: 7px 12px; border-bottom: 1px solid #E5E7EB; color: #374151; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ── Alert ── */
+  .alert { background: #EFF6FF; border-left: 4px solid #1E3A8A; border-radius: 0 6px 6px 0; padding: 10px 14px; margin-bottom: 12px; font-size: 8.5pt; line-height: 1.55; }
+  .alert-title { font-weight: 700; color: #1E3A8A; margin-bottom: 4px; font-size: 8pt; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  p { font-size: 9pt; line-height: 1.65; color: #374151; margin-bottom: 8px; }
+  ul { padding-left: 16px; margin-bottom: 8px; }
+  ul li { font-size: 9pt; line-height: 1.6; color: #374151; margin-bottom: 3px; }
+  strong { font-weight: 700; }
+  .text-muted { color: #9CA3AF; font-style: italic; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 7pt; font-weight: 700; letter-spacing: 0.05em; }
+  .badge-green { background: #D1FAE5; color: #065F46; }
+  .badge-yellow { background: #FEF3C7; color: #92400E; }
+  .badge-red { background: #FEE2E2; color: #991B1B; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ COVER ═══════════ -->
+<div class="page cover">
+  <div class="cover-watermark">AGSVA</div>
+  <div class="cover-header">
+    <div class="cover-seal">AG</div>
+    <div class="cover-agency">Australian Government Security Vetting Agency</div>
+    <div class="cover-classification">UNCLASSIFIED</div>
+  </div>
+  <div class="cover-body">
+    <div class="cover-label">Security Clearance — Baseline</div>
+    <div class="cover-title">Application<br>Summary<br>Report</div>
+    <div class="cover-subtitle">Readiness &amp; Submission Package</div>
+    <div class="cover-divider"></div>
+    <div class="cover-meta-grid">
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Applicant</div>
+        <div class="cover-meta-value">{{applicantName}}</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Overall Readiness</div>
+        <div class="cover-meta-value">{{overallProgress}}%</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Clearance Level</div>
+        <div class="cover-meta-value">Baseline (ATO)</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Generated</div>
+        <div class="cover-meta-value">{{generatedDate}}</div>
+      </div>
+    </div>
+    <div class="alert" style="max-width:440px; background: rgba(255,255,255,0.1); border-color: #93C5FD; color: rgba(255,255,255,0.9);">
+      <div class="alert-title" style="color: #93C5FD;">Confidential — Applicant Use Only</div>
+      This document is a readiness summary generated by the AGSVA Clearance Platform. It is not an official AGSVA document and is intended solely to assist the applicant in preparing their submission.
+    </div>
+  </div>
+  <div class="cover-footer">
+    <span>AGSVA Clearance Platform &nbsp;·&nbsp; Ref: {{referenceId}}</span>
+    <span>OFFICIAL USE ONLY</span>
+  </div>
+</div>
+
+<!-- ═══════════ PAGE 2 — PROGRESS DASHBOARD ═══════════ -->
+<div class="page content-page" style="position:relative;">
+  <div class="page-header">
+    <span class="page-header-title">AGSVA Baseline Clearance &nbsp;·&nbsp; Application Summary — {{applicantName}}</span>
+    <span class="page-header-num">Page 2</span>
+  </div>
+  <div class="content-body">
+
+    <div class="section-heading">
+      <div class="section-bar"></div>
+      <div><div class="section-title">Application Readiness Dashboard</div></div>
+    </div>
+    <table class="progress-table">
+      <thead><tr><th>Section</th><th>Completion</th><th>Progress</th><th>Status</th></tr></thead>
+      <tbody>
+        {{#each progressItems}}
+        <tr>
+          <td><strong>{{label}}</strong></td>
+          <td>{{value}}%</td>
+          <td>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill {{fillClass}}" style="width:{{value}}%;"></div>
+            </div>
+          </td>
+          <td>
+            {{#if (gte value 80)}}<span class="badge badge-green">Ready</span>{{else}}{{#if (gte value 40)}}<span class="badge badge-yellow">In Progress</span>{{else}}<span class="badge badge-red">Incomplete</span>{{/if}}{{/if}}
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <div class="section-heading" style="margin-top:14px;">
+      <div class="section-bar"></div>
+      <div><div class="section-title">Personal Information</div></div>
+    </div>
+    <div class="info-grid">
+      <div class="info-label">Full Name</div>
+      <div class="info-value"><strong>{{personal.fullName}}</strong></div>
+      {{#if personal.dob}}
+      <div class="info-label">Date of Birth</div>
+      <div class="info-value">{{personal.dob}}</div>
+      {{/if}}
+      {{#if personal.citizenship}}
+      <div class="info-label">Citizenship</div>
+      <div class="info-value">{{personal.citizenship}}</div>
+      {{/if}}
+      {{#if personal.email}}
+      <div class="info-label">Email</div>
+      <div class="info-value">{{personal.email}}</div>
+      {{/if}}
+      {{#if personal.phone}}
+      <div class="info-label">Phone</div>
+      <div class="info-value">{{personal.phone}}</div>
+      {{/if}}
+      {{#if personal.currentAddr}}
+      <div class="info-label">Current Address</div>
+      <div class="info-value">{{personal.currentAddr}}</div>
+      {{/if}}
+    </div>
+  </div>
+  <div class="page-footer">
+    <span>AGSVA Clearance Platform &nbsp;·&nbsp; {{applicantName}} &nbsp;·&nbsp; Application Summary</span>
+    <span>UNCLASSIFIED &nbsp;·&nbsp; {{generatedDate}}</span>
+  </div>
+</div>
+
+<!-- ═══════════ PAGE 3 — REFEREES & DOCUMENTS ═══════════ -->
+<div class="page content-page" style="position:relative;">
+  <div class="page-header">
+    <span class="page-header-title">AGSVA Baseline Clearance &nbsp;·&nbsp; Application Summary — {{applicantName}}</span>
+    <span class="page-header-num">Page 3</span>
+  </div>
+  <div class="content-body">
+
+    <div class="section-heading">
+      <div class="section-bar"></div>
+      <div><div class="section-title">Nominated Referees ({{refereeCount}})</div></div>
+    </div>
+    {{#if referees.length}}
+    <table>
+      <thead><tr><th>Name</th><th>Role / Title</th><th>Organisation</th><th>Contact</th><th>Eligibility</th></tr></thead>
+      <tbody>
+        {{#each referees}}
+        <tr>
+          <td><strong>{{name}}</strong></td>
+          <td>{{role}}</td>
+          <td>{{employer}}</td>
+          <td>{{#if email}}{{email}}{{else}}<span class="text-muted">Not provided</span>{{/if}}</td>
+          <td>{{#if eligible}}<span class="badge badge-green">Eligible</span>{{else}}<span class="badge badge-yellow">Review</span>{{/if}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="text-muted">No referees nominated yet.</p>
+    {{/if}}
+
+    <div class="section-heading" style="margin-top:14px;">
+      <div class="section-bar"></div>
+      <div><div class="section-title">Uploaded Documents ({{documentCount}})</div></div>
+    </div>
+    {{#if documents.length}}
+    <table>
+      <thead><tr><th>#</th><th>Document Name</th><th>Type</th><th>Category</th><th>Status</th></tr></thead>
+      <tbody>
+        {{#each documents}}
+        <tr>
+          <td>{{inc @index}}</td>
+          <td><strong>{{name}}</strong></td>
+          <td>{{typeLabel}}</td>
+          <td>{{category}}</td>
+          <td><span class="badge badge-green">{{status}}</span></td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="text-muted">No documents uploaded yet.</p>
+    {{/if}}
+
+    <div class="section-heading" style="margin-top:14px;">
+      <div class="section-bar"></div>
+      <div><div class="section-title">Legal Proceedings Disclosure</div></div>
+    </div>
+    {{#if disclosureText}}
+    <p>{{disclosureText}}</p>
+    {{else}}
+    <p class="text-muted">No disclosure statement captured.</p>
+    {{/if}}
+
+    <div class="alert" style="margin-top:14px;">
+      <div class="alert-title">Submission Checklist</div>
+      Ensure all sections reach 100% before submitting your AGSVA application. Pay particular attention to: identity documents, referee eligibility, and the legal proceedings disclosure.
+    </div>
+  </div>
+  <div class="page-footer">
+    <span>AGSVA Clearance Platform &nbsp;·&nbsp; {{applicantName}} &nbsp;·&nbsp; Application Summary</span>
+    <span>UNCLASSIFIED &nbsp;·&nbsp; {{generatedDate}}</span>
+  </div>
+</div>
+
+</body>
+</html>

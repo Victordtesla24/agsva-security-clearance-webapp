@@ -8,6 +8,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import { createPersistenceLayer } from "./persistence.mjs";
+import { generateRefereePdf, generateApplicationPdf, closeBrowser } from "./pdf-generator.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,7 +38,7 @@ const persistence = await createPersistenceLayer(rootDir);
 
 const config = {
     host: getArgValue("--host") || process.env.LOCAL_APP_HOST || "127.0.0.1",
-    port: Number.parseInt(getArgValue("--port") || process.env.LOCAL_APP_PORT || "3000", 10),
+    port: Number.parseInt(getArgValue("--port") || process.env.LOCAL_APP_PORT || process.env.PORT || "3000", 10),
     defaultFile: resolveDefaultFile(process.env.LOCAL_APP_DEFAULT_FILE || "draft.html"),
     model: process.env.OPENAI_MODEL || "gpt-5.4",
     rateWindowSeconds: normalizeInteger(process.env.OPENAI_RATE_LIMIT_WINDOW_SECONDS, 300),
@@ -924,6 +925,47 @@ async function handleGetDocumentContent(request, response, documentId) {
     }
 }
 
+async function handlePdfReferee(request, response) {
+    const body = await readJsonBody(request);
+    const state = body?.state ?? {};
+    const refereeIndex = Number.isInteger(body?.refereeIndex) ? body.refereeIndex : 0;
+    try {
+        const pdfBuffer = await generateRefereePdf(state, refereeIndex);
+        const applicantName = String(state?.personal?.fullName || "applicant").replace(/\s+/gu, "-");
+        const filename = `AGSVA-Referee-Briefing-${applicantName}-${refereeIndex + 1}.pdf`;
+        response.writeHead(200, {
+            "content-type": "application/pdf",
+            "content-length": pdfBuffer.length,
+            "content-disposition": `attachment; filename="${filename}"`,
+            "cache-control": "no-store"
+        });
+        response.end(pdfBuffer);
+    } catch (error) {
+        log("ERROR", "Referee PDF generation failed", { message: error.message });
+        json(response, 500, { ok: false, error: `PDF generation failed: ${error.message}` });
+    }
+}
+
+async function handlePdfApplication(request, response) {
+    const body = await readJsonBody(request);
+    const state = body?.state ?? {};
+    try {
+        const pdfBuffer = await generateApplicationPdf(state);
+        const applicantName = String(state?.personal?.fullName || "applicant").replace(/\s+/gu, "-");
+        const filename = `AGSVA-Application-Summary-${applicantName}.pdf`;
+        response.writeHead(200, {
+            "content-type": "application/pdf",
+            "content-length": pdfBuffer.length,
+            "content-disposition": `attachment; filename="${filename}"`,
+            "cache-control": "no-store"
+        });
+        response.end(pdfBuffer);
+    } catch (error) {
+        log("ERROR", "Application PDF generation failed", { message: error.message });
+        json(response, 500, { ok: false, error: `PDF generation failed: ${error.message}` });
+    }
+}
+
 const server = http.createServer(async (request, response) => {
     const requestUrl = new URL(request.url || "/", `http://${request.headers.host || `${config.host}:${config.port}`}`);
     const pathname = requestUrl.pathname;
@@ -972,6 +1014,16 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
+        if (pathname === "/api/pdf/referee" && request.method === "POST") {
+            await handlePdfReferee(request, response);
+            return;
+        }
+
+        if (pathname === "/api/pdf/application" && request.method === "POST") {
+            await handlePdfApplication(request, response);
+            return;
+        }
+
         if (["GET", "HEAD"].includes(request.method || "")) {
             await serveStatic(request, response, pathname);
             return;
@@ -997,6 +1049,16 @@ server.listen(config.port, config.host, () => {
         port: config.port,
         defaultFile: config.defaultFile,
         model: config.model,
-        openAiConfigured: Boolean(config.apiKey)
+        openAiConfigured: Boolean(config.apiKey),
+        pdfEndpoints: ["/api/pdf/referee", "/api/pdf/application"]
     });
 });
+
+async function gracefulShutdown(signal) {
+    log("INFO", `Received ${signal} — shutting down`);
+    server.close();
+    await closeBrowser();
+    process.exit(0);
+}
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));

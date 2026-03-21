@@ -1,0 +1,77 @@
+---
+# AGSVA Clearance Platform — Docker Compose
+# Production-ready deployment configuration.
+#
+# Usage:
+#   docker compose up --build          # build and start
+#   docker compose up -d               # start in background
+#   docker compose down                # stop and remove containers
+#   docker compose logs -f agsva       # stream logs
+
+version: "3.9"
+
+services:
+  agsva:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agsva-clearance-platform
+    image: agsva-clearance-platform:latest
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+
+    # ── Persistent data volumes ─────────────────────────────────
+    volumes:
+      - agsva-data:/app/data
+      - agsva-artifacts:/app/artifacts
+
+    # ── Environment overrides ───────────────────────────────────
+    # Set OPENAI_API_KEY here or via a .env file for AI validation.
+    environment:
+      NODE_ENV: production
+      LOCAL_APP_HOST: "0.0.0.0"
+      LOCAL_APP_PORT: "3000"
+      LOCAL_APP_DATA_DIR: "/app/data"
+      LOCAL_APP_DEFAULT_FILE: "index.html"
+      LOCAL_APP_DISABLE_DOTENV: "1"
+      OPENAI_MODEL: "gpt-5.4"
+      # OPENAI_API_KEY: "sk-..."   # uncomment and set for AI validation
+
+    # ── Resource limits (adjust for host capacity) ──────────────
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
+    # ── Health check ────────────────────────────────────────────
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+
+    # ── Security hardening ──────────────────────────────────────
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_ADMIN   # required for Chromium sandbox
+
+    # ── Logging ─────────────────────────────────────────────────
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  agsva-data:
+    driver: local
+  agsva-artifacts:
+    driver: local

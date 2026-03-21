@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGSVA Referee Briefing Package — {{applicantName}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { font-size: 10pt; }
+  body { font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif; color: #374151; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* ── Layout ── */
+  .page { width: 210mm; min-height: 297mm; position: relative; overflow: hidden; }
+  @media print {
+    .page { page-break-after: always; page-break-inside: avoid; }
+    .page:last-child { page-break-after: auto; }
+  }
+
+  /* ── Cover Page ── */
+  .cover {
+    background: linear-gradient(160deg, #1E3A8A 0%, #1e40af 60%, #1d4ed8 100%);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    min-height: 297mm;
+  }
+  .cover-watermark {
+    position: absolute;
+    right: -40px;
+    top: 50%;
+    transform: translateY(-50%) rotate(30deg);
+    font-size: 180px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.04);
+    letter-spacing: -8px;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .cover-header {
+    padding: 18mm 20mm 10mm;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .cover-seal {
+    width: 52px; height: 52px;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.4);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .cover-agency {
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.8);
+    margin-left: 14px;
+    flex: 1;
+  }
+  .cover-classification {
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.4);
+    padding: 3px 10px;
+    border-radius: 3px;
+  }
+  .cover-body {
+    flex: 1;
+    padding: 20mm 20mm 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .cover-label {
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #93C5FD;
+    margin-bottom: 10px;
+  }
+  .cover-title {
+    font-size: 30pt;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+  .cover-subtitle {
+    font-size: 16pt;
+    font-weight: 300;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 28px;
+  }
+  .cover-divider {
+    width: 60px; height: 3px;
+    background: #93C5FD;
+    margin-bottom: 28px;
+    border-radius: 2px;
+  }
+  .cover-meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .cover-meta-item {
+    padding: 14px 18px;
+    border-right: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .cover-meta-item:nth-child(even) { border-right: none; }
+  .cover-meta-item:nth-last-child(-n+2) { border-bottom: none; }
+  .cover-meta-label {
+    font-size: 7pt;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #93C5FD;
+    margin-bottom: 4px;
+  }
+  .cover-meta-value {
+    font-size: 10pt;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.3;
+  }
+  .cover-footer {
+    padding: 10mm 20mm 14mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 7.5pt;
+    color: rgba(255,255,255,0.55);
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .cover-footer-ref {
+    font-size: 7pt;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* ── Content Pages ── */
+  .content-page { padding: 0 0 16mm; }
+  .page-header {
+    background: #1E3A8A;
+    color: #fff;
+    padding: 8mm 20mm 6mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10mm;
+  }
+  .page-header-title { font-size: 8pt; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.8); }
+  .page-header-num { font-size: 7.5pt; color: rgba(255,255,255,0.55); }
+  .content-body { padding: 0 20mm; }
+  .page-footer {
+    position: absolute;
+    bottom: 8mm;
+    left: 20mm; right: 20mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 6px;
+    border-top: 1px solid #E5E7EB;
+    font-size: 7pt;
+    color: #9CA3AF;
+  }
+
+  /* ── Section Headings ── */
+  .section-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    margin-top: 18px;
+  }
+  .section-heading:first-child { margin-top: 0; }
+  .section-bar { width: 4px; height: 22px; background: #1E3A8A; border-radius: 2px; flex-shrink: 0; }
+  .section-title { font-size: 12pt; font-weight: 700; color: #1E3A8A; }
+  .section-subtitle { font-size: 8.5pt; color: #6B7280; font-weight: 400; margin-top: 2px; }
+
+  /* ── Info Grid ── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 0;
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .info-row { display: contents; }
+  .info-label {
+    padding: 7px 12px;
+    font-size: 8.5pt;
+    font-weight: 600;
+    color: #374151;
+    background: #F3F4F6;
+    border-bottom: 1px solid #E5E7EB;
+    border-right: 1px solid #E5E7EB;
+  }
+  .info-value {
+    padding: 7px 12px;
+    font-size: 8.5pt;
+    color: #111827;
+    border-bottom: 1px solid #E5E7EB;
+    background: #fff;
+  }
+  .info-label:last-of-type, .info-value:last-child { border-bottom: none; }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 8.5pt; }
+  thead th {
+    background: #1E3A8A;
+    color: #fff;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 8pt;
+    letter-spacing: 0.05em;
+  }
+  tbody tr:nth-child(even) td { background: #F9FAFB; }
+  tbody tr:hover td { background: #EFF6FF; }
+  td { padding: 7px 12px; border-bottom: 1px solid #E5E7EB; color: #374151; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ── Alert Box ── */
+  .alert {
+    background: #FEF3C7;
+    border-left: 4px solid #F59E0B;
+    border-radius: 0 6px 6px 0;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 8.5pt;
+    line-height: 1.55;
+  }
+  .alert-title { font-weight: 700; color: #92400E; margin-bottom: 4px; font-size: 8pt; letter-spacing: 0.05em; text-transform: uppercase; }
+  .alert-info { background: #EFF6FF; border-left-color: #1E3A8A; }
+  .alert-info .alert-title { color: #1E3A8A; }
+
+  /* ── Body Text ── */
+  p { font-size: 9pt; line-height: 1.65; color: #374151; margin-bottom: 9px; }
+  ul { padding-left: 16px; margin-bottom: 9px; }
+  ul li { font-size: 9pt; line-height: 1.6; color: #374151; margin-bottom: 4px; }
+  ol { padding-left: 20px; margin-bottom: 9px; }
+  ol li { font-size: 9pt; line-height: 1.6; color: #374151; margin-bottom: 5px; }
+  strong { font-weight: 700; }
+
+  /* ── Badge ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 7pt;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .badge-blue { background: #DBEAFE; color: #1E40AF; }
+  .badge-green { background: #D1FAE5; color: #065F46; }
+
+  /* ── Template Box ── */
+  .template-box {
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-size: 8.5pt;
+    line-height: 1.7;
+    color: #374151;
+    white-space: pre-line;
+    font-style: italic;
+  }
+  .template-placeholder {
+    color: #1E3A8A;
+    font-weight: 600;
+    font-style: normal;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ COVER PAGE ═══════════ -->
+<div class="page cover">
+  <div class="cover-watermark">AGSVA</div>
+  <div class="cover-header">
+    <div class="cover-seal">AG</div>
+    <div class="cover-agency">Australian Government Security Vetting Agency</div>
+    <div class="cover-classification">UNCLASSIFIED</div>
+  </div>
+  <div class="cover-body">
+    <div class="cover-label">Security Clearance — Baseline</div>
+    <div class="cover-title">Referee<br>Briefing<br>Package</div>
+    <div class="cover-subtitle">Professional Reference Guide</div>
+    <div class="cover-divider"></div>
+    <div class="cover-meta-grid">
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Prepared For</div>
+        <div class="cover-meta-value">{{refereeName}}</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Referee Role</div>
+        <div class="cover-meta-value">{{refereeRole}}</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Applicant</div>
+        <div class="cover-meta-value">{{applicantName}}</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Issued Date</div>
+        <div class="cover-meta-value">{{issuedDate}}</div>
+      </div>
+    </div>
+    <div class="alert alert-info" style="max-width:440px;">
+      <div class="alert-title">Confidential — Referee Use Only</div>
+      This document contains information provided in confidence for the purpose of a security clearance assessment. Please handle with discretion and do not distribute.
+    </div>
+  </div>
+  <div class="cover-footer">
+    <span>AGSVA Clearance Platform &nbsp;·&nbsp; Ref: {{referenceId}}</span>
+    <span class="cover-footer-ref">OFFICIAL USE ONLY</span>
+  </div>
+</div>
+
+<!-- ═══════════ PAGE 2 — APPLICANT PROFILE ═══════════ -->
+<div class="page content-page" style="position:relative;">
+  <div class="page-header">
+    <span class="page-header-title">AGSVA Baseline Security Clearance &nbsp;·&nbsp; Referee Briefing</span>
+    <span class="page-header-num">Page 2 of 5</span>
+  </div>
+  <div class="content-body">
+
+    <div class="section-heading">
+      <div class="section-bar"></div>
+      <div>
+        <div class="section-title">Applicant Professional Profile</div>
+        <div class="section-subtitle">Summary information for your reference</div>
+      </div>
+    </div>
+    <div class="info-grid">
+      <div class="info-label">Full Name</div>
+      <div class="info-value"><strong>{{applicantName}}</strong></div>
+      <div class="info-label">Organisation</div>
+      <div class="info-value">{{refereeEmployer}}</div>
+      <div class="info-label">Your Relationship</div>
+      <div class="info-value">{{refereeRole}} — {{refereeName}}</div>
+      <div class="info-label">Date of Issue</div>
+      <div class="info-value">{{issuedDate}}</div>
+    </div>
+
+    <div class="section-heading" style="margin-top:16px;">
+      <div class="section-bar"></div>
+      <div><div class="section-title">Professional Background</div></div>
+    </div>
+    <p>{{applicantName}} is a seasoned technology professional with over 20 years of experience in full-stack development, AI systems architecture, and enterprise DevOps. Throughout their career they have consistently demonstrated exceptional professional integrity, technical depth, and the capacity to work within security-sensitive and compliance-driven environments.</p>
+    <ul>
+      <li>Expertise in full-stack development, AI systems, DevOps, and infrastructure management</li>
+      <li>Extensive experience with security-sensitive government contracts and compliance frameworks</li>
+      <li>Demonstrated professional integrity and consistent reliability across diverse roles</li>
+      <li>History of handling confidential information responsibly and with sound judgement</li>
+    </ul>
+
+    <div class="section-heading" style="margin-top:16px;">
+      <div class="section-bar"></div>
+      <div><div class="section-title">About the AGSVA Baseline Clearance</div></div>
+    </div>
+    <p>A Baseline Security Clearance authorises the holder to access <strong>OFFICIAL</strong> and <strong>PROTECTED</strong> classified information on behalf of the Australian Government. AGSVA assesses applicants on core personal qualities including:</p>
+    <table>
+      <thead><tr><th>Quality</th><th>Why It Matters</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Honesty &amp; Integrity</strong></td><td>Ability to be trusted with classified and sensitive information</td></tr>
+        <tr><td><strong>Trustworthiness</strong></td><td>Reliability to follow security protocols without supervision</td></tr>
+        <tr><td><strong>Maturity &amp; Judgement</strong></td><td>Sound decision-making under pressure or in sensitive situations</td></tr>
+        <tr><td><strong>Resilience &amp; Tolerance</strong></td><td>Ability to manage stress without compromising security obligations</td></tr>
+        <tr><td><strong>Loyalty to Australia</strong></td><td>Commitment to Australian national interests and values</td></tr>
+      </tbody>
+    </table>
+    <p>{{applicantName}}'s 20-year professional history provides strong evidence of all these qualities. Your reference plays a vital role in confirming this assessment.</p>
+  </div>
+  <div class="page-footer">
+    <span>AGSVA Clearance Platform &nbsp;·&nbsp; {{applicantName}} &nbsp;·&nbsp; Referee Briefing Package</span>
+    <span>UNCLASSIFIED &nbsp;·&nbsp; {{issuedDate}}</span>
+  </div>
+</div>
+
+<!-- ═══════════ PAGE 3 — YOUR ROLE ═══════════ -->
+<div class="page content-page" style="position:relative;">
+  <div class="page-header">
+    <span class="page-header-title">AGSVA Baseline Security Clearance &nbsp;·&nbsp; Referee Briefing</span>
+    <span class="page-header-num">Page 3 of 5</span>
+  </div>
+  <div class="content-body">
+
+    <div class="section-heading">
+      <div class="section-bar"></div>
+      <div>
+        <div class="section-title">Your Role as a Referee</div>
+        <div class="section-subtitle">What AGSVA will ask of you</div>
+      </div>
+    </div>
+    <p>As a nominated referee, AGSVA may contact you via one or more of the following methods:</p>
+    <ol>
+      <li><strong>Online Report</strong> — You will receive an email with a unique secure link to complete a standardised online questionnaire. This typically takes <strong>15–45 minutes</strong> and must be completed within <strong>15 business days</strong>.</li>
+      <li><strong>Phone Interview</strong> — An AGSVA vetting officer may call to discuss your responses or seek clarification on specific points.</li>
+      <li><strong>Written Correspondence</strong> — Additional questions may be sent via email for further elaboration.</li>
+    </ol>
+
+    <div class="section-heading" style="margin-top:16px;">
+      <div class="section-bar"></div>
+      <div><div class="section-title">Typical Referee Questions</div></div>
+    </div>
+    <p>AGSVA referees are typically asked to comment on the following aspects of the applicant's character and conduct:</p>
+    <table>
+      <thead><tr><th>Topic Area</th><th>Example Questions</th></tr></thead>
+      <tbody>
+        <tr><td>Professional Relationship</td><td>Nature, duration, and context of your working relationship</td></tr>
+        <tr><td>Honesty &amp; Integrity</td><td>Would you trust this person with sensitive or confidential information?</td></tr>
+        <tr><td>Work Ethic &amp; Reliability</td><td>Professional competence, consistency, and dependability</td></tr>
+        <tr><td>Confidentiality Handling</td><td>Observed behaviour with sensitive or restricted information</td></tr>
+        <tr><td>Judgement &amp; Maturity</td><td>Examples of sound decision-making in challenging situations</td></tr>
+        <tr><td>Suitability Concerns</td><td>Any concerns about clearance suitability — answer honestly</td></tr>
+        <tr><td>Financial Responsibility</td><td>If within your knowledge — financial reliability and responsibility</td></tr>
+      </tbody>
+    </table>
+
+    <div class="alert">
+      <div class="alert-title">⏱ Important — Response Timing</div>
+      Referee responsiveness is a primary cause of clearance processing delays. Please respond to AGSVA within <strong>5 business days</strong> of receiving the request to ensure {{applicantName}}'s application is processed efficiently. The secure online link is valid for <strong>15 business days</strong>.
+    </div>
+
+    <div class="section-heading" style="margin-top:16px;">
+      <div class="section-bar"></div>
+      <div><div class="section-title">AGSVA Contact Details</div></div>
+    </div>
+    <div class="info-grid">
+      <div class="info-label">Website</div>
+      <div class="info-value">www.defence.gov.au/agsva</div>
+      <div class="info-label">Enquiry Line</div>
+      <div class="info-value">1800 VETTING (1800 838 846)</div>
+      <div class="info-label">Hours</div>
+      <div class="info-value">Monday–Friday, 9:00am–4:30pm AEST</div>
+      <div class="info-label">Email</div>
+      <div class="info-value">agsva.referee@defence.gov.au</div>
+    </div>
+  </div>
+  <div class="page-footer">
+    <span>AGSVA Clearance Platform &nbsp;·&nbsp; {{applicantName}} &nbsp;·&nbsp; Referee Briefing Package</span>
+    <span>UNCLASSIFIED &nbsp;·&nbsp; {{issuedDate}}</span>
+  </div>
+</div>
+
+<!-- ═══════════ PAGE 4 — REFERENCE TEMPLATE ═══════════ -->
+<div class="page content-page" style="position:relative;">
+  <div class="page-header">
+    <span class="page-header-title">AGSVA Baseline Security Clearance &nbsp;·&nbsp; Referee Briefing</span>
+    <span class="page-header-num">Page 4 of 5</span>
+  </div>
+  <div class="content-body">
+
+    <div class="section-heading">
+      <div class="section-bar"></div>
+      <div>
+        <div class="section-title">Character Reference Template</div>
+        <div class="section-subtitle">Suggested structure — adapt based on your direct knowledge</div>
+      </div>
+    </div>
+    <p>The following template may assist you in preparing a written reference if requested by AGSVA. Please personalise all sections based on your genuine experience with the applicant.</p>
+
+    <div class="template-box">
+[Date]
+
+To Whom It May Concern,
+
+I am writing to provide a professional reference for <span class="template-placeholder">[Applicant Full Name]</span>, whom I have known in my capacity as <span class="template-placeholder">[Your Role/Title]</span> at <span class="template-placeholder">[Organisation Name]</span> for approximately <span class="template-placeholder">[Duration]</span>.
+
+During this time, I have observed <span class="template-placeholder">[Applicant First Name]</span> to consistently demonstrate a high standard of professional integrity, reliability, and sound judgment. Specifically:
+
+<strong>Professional Conduct:</strong> <span class="template-placeholder">[Describe 2–3 specific examples of professional reliability, ethical behaviour, or handling of sensitive situations]</span>
+
+<strong>Character Assessment:</strong> <span class="template-placeholder">[Describe personal qualities such as honesty, maturity, discretion, and trustworthiness observed first-hand]</span>
+
+<strong>Suitability for Security Clearance:</strong> Based on my observations, I have no concerns regarding <span class="template-placeholder">[Applicant First Name]</span>'s suitability to hold a government security clearance. I am confident they would handle classified information with the utmost professionalism and discretion.
+
+I am happy to be contacted by AGSVA for further discussion.
+
+Yours sincerely,
+
+<span class="template-placeholder">[Your Full Name]</span>
+<span class="template-placeholder">[Your Position/Title]</span>
+<span class="template-placeholder">[Organisation]</span>
+<span class="template-placeholder">[Phone] | [Email]</span>
+    </div>
+
+    <div class="alert alert-info" style="margin-top:14px;">
+      <div class="alert-title">Guidance Note</div>
+      AGSVA values honest, specific references over generic praise. Mention concrete examples and timeframes where possible. If you have any concerns about the applicant's suitability, you are legally obligated to disclose these honestly to AGSVA.
+    </div>
+  </div>
+  <div class="page-footer">
+    <span>AGSVA Clearance Platform &nbsp;·&nbsp; {{applicantName}} &nbsp;·&nbsp; Referee Briefing Package</span>
+    <span>UNCLASSIFIED &nbsp;·&nbsp; {{issuedDate}}</span>
+  </div>
+</div>
+
+<!-- ═══════════ PAGE 5 — CONTACT INFO ═══════════ -->
+<div class="page content-page" style="position:relative;">
+  <div class="page-header">
+    <span class="page-header-title">AGSVA Baseline Security Clearance &nbsp;·&nbsp; Referee Briefing</span>
+    <span class="page-header-num">Page 5 of 5</span>
+  </div>
+  <div class="content-body">
+
+    <div class="section-heading">
+      <div class="section-bar"></div>
+      <div>
+        <div class="section-title">Applicant Contact Information</div>
+        <div class="section-subtitle">For queries directly to the applicant</div>
+      </div>
+    </div>
+    <div class="info-grid">
+      <div class="info-label">Applicant Name</div>
+      <div class="info-value"><strong>{{applicantName}}</strong></div>
+      {{#if applicantEmail}}
+      <div class="info-label">Email</div>
+      <div class="info-value">{{applicantEmail}}</div>
+      {{/if}}
+      {{#if applicantPhone}}
+      <div class="info-label">Phone</div>
+      <div class="info-value">{{applicantPhone}}</div>
+      {{/if}}
+    </div>
+
+    <div class="section-heading" style="margin-top:18px;">
+      <div class="section-bar"></div>
+      <div>
+        <div class="section-title">Referee Information Confirmed</div>
+        <div class="section-subtitle">As submitted by the applicant</div>
+      </div>
+    </div>
+    <div class="info-grid">
+      <div class="info-label">Referee Name</div>
+      <div class="info-value"><strong>{{refereeName}}</strong></div>
+      <div class="info-label">Role / Title</div>
+      <div class="info-value">{{refereeRole}}</div>
+      <div class="info-label">Organisation</div>
+      <div class="info-value">{{refereeEmployer}}</div>
+      {{#if refereeEmail}}
+      <div class="info-label">Email</div>
+      <div class="info-value">{{refereeEmail}}</div>
+      {{/if}}
+      {{#if refereePhone}}
+      <div class="info-label">Phone</div>
+      <div class="info-value">{{refereePhone}}</div>
+      {{/if}}
+    </div>
+
+    <div class="section-heading" style="margin-top:18px;">
+      <div class="section-bar"></div>
+      <div><div class="section-title">Key Reminders</div></div>
+    </div>
+    <ul>
+      <li>Respond to AGSVA within <strong>5 business days</strong> of receiving their request.</li>
+      <li>The secure online link is valid for <strong>15 business days</strong>.</li>
+      <li>Contact AGSVA directly at <strong>1800 838 846</strong> if you have any questions about the process.</li>
+      <li>All responses are treated in strict confidence by AGSVA.</li>
+      <li>Providing false or misleading information to a Commonwealth agency may constitute an offence.</li>
+    </ul>
+
+    <div class="alert" style="margin-top:18px;">
+      <div class="alert-title">Thank You</div>
+      Your participation as a referee is greatly appreciated and plays a significant role in supporting {{applicantName}}'s security clearance application. AGSVA and the applicant thank you for your time and cooperation.
+    </div>
+  </div>
+  <div class="page-footer">
+    <span>AGSVA Clearance Platform &nbsp;·&nbsp; Ref: {{referenceId}} &nbsp;·&nbsp; Generated {{issuedDate}}</span>
+    <span>UNCLASSIFIED — END OF DOCUMENT</span>
+  </div>
+</div>
+
+</body>
+</html>
