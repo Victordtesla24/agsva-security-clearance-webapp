@@ -43,3 +43,4 @@ Use `--host 0.0.0.0` in Cloud Agent VMs so the browser can reach the server. The
 - The only npm devDependency is `playwright` (optional, for future browser tests). The app itself runs without any installed packages.
 - SQLite database is auto-created at `data/agsva-app.sqlite` on first server start.
 - `artifacts/` and `data/` directories are gitignored runtime directories created automatically.
+- **Do not commit `firebase-config.js` changes** after running `npm run check:server` or `npm run ci`. Those commands regenerate it from `.env`, which overwrites the production Firebase values with placeholders when using `.env.example`. Always `git restore firebase-config.js` before committing.
